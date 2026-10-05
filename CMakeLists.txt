@@ -23,10 +23,11 @@ target_link_libraries(mojave PRIVATE mojave_core)
 # ── Tests ─────────────────────────────────────────────────────
 if(MOJAVE_BUILD_TESTS)
     enable_testing()
-    add_executable(mojave_tests
-        tests/test_assetlocator.cpp
-        tests/test_vdf.cpp
-    )
-    target_link_libraries(mojave_tests PRIVATE mojave_core)
-    add_test(NAME assetlocator COMMAND mojave_tests)
+    add_executable(mojave_tests_assetlocator tests/test_assetlocator.cpp)
+    target_link_libraries(mojave_tests_assetlocator PRIVATE mojave_core)
+    add_test(NAME assetlocator COMMAND mojave_tests_assetlocator)
+
+    add_executable(mojave_tests_vdf tests/test_vdf.cpp)
+    target_link_libraries(mojave_tests_vdf PRIVATE mojave_core)
+    add_test(NAME vdf COMMAND mojave_tests_vdf)
 endif()
