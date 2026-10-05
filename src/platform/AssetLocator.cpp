@@ -73,10 +73,13 @@ void AssetLocator::ScanConfigFile(std::vector<GameInstall>& out) {
 std::vector<GameInstall> AssetLocator::Discover() {
     std::vector<GameInstall> out;
 
-    // 1. Environment override — always honored first.
+    // 1. Environment overrides — always honored first.
     if (const char* env = std::getenv("MOJAVE_GAME_PATH")) {
         fs::path p(env);
         if (LooksLikeInstall(p)) out.push_back({p, "manual", ""});
+    }
+    if (const char* env = std::getenv("MOJAVE_STEAM_ROOT")) {
+        ScanSteamRoot(fs::path(env), out);
     }
 
 #ifdef _WIN32

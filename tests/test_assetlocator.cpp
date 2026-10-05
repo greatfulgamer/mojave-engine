@@ -58,6 +58,7 @@ int main() {
             << "  \"0\" { \"path\" \"" << lib2.string() << "\" }\n"
             << "}\n";
     }
+    setenv("MOJAVE_STEAM_ROOT", steamRoot.c_str(), 1);
     {
         auto found = AssetLocator::Discover();
         bool gotLib2 = false;

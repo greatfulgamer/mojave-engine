@@ -3,10 +3,11 @@
 // THE file that seven months of NVMP debugging was about. Get it right.
 // Discovery order (never hardcoded, always override-able):
 //   1. MOJAVE_GAME_PATH env override (tests + power users)
-//   2. Linux: native Steam + Flatpak Steam (libraryfolders.vdf aware)
-//   3. Linux: GOG conventions
-//   4. Windows: registry (Steam + GOG)
-//   5. User config file (~/.config/mojave/gamepaths.txt)
+//   2. MOJAVE_STEAM_ROOT env override (nonstandard Steam roots, CI fixtures)
+//   3. Linux: native Steam + Flatpak Steam (libraryfolders.vdf aware)
+//   4. Linux: GOG conventions
+//   5. Windows: registry (Steam + GOG)
+//   6. User config file (~/.config/mojave/gamepaths.txt)
 // Candidates must pass LooksLikeInstall() marker validation.
 
 #include <filesystem>
