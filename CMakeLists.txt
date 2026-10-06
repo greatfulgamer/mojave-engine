@@ -12,6 +12,7 @@ option(MOJAVE_HEADLESS "Build without GUI deps (server/sim only)" OFF)
 add_library(mojave_core STATIC
     src/platform/AssetLocator.cpp
     src/platform/Vdf.cpp
+    src/asset/EsmParser.cpp
 )
 target_include_directories(mojave_core PUBLIC src)
 target_compile_options(mojave_core PRIVATE -Wall -Wextra -Wpedantic)
@@ -30,4 +31,8 @@ if(MOJAVE_BUILD_TESTS)
     add_executable(mojave_tests_vdf tests/test_vdf.cpp)
     target_link_libraries(mojave_tests_vdf PRIVATE mojave_core)
     add_test(NAME vdf COMMAND mojave_tests_vdf)
+
+    add_executable(mojave_tests_esmparser tests/test_esmparser.cpp)
+    target_link_libraries(mojave_tests_esmparser PRIVATE mojave_core)
+    add_test(NAME esmparser COMMAND mojave_tests_esmparser)
 endif()
