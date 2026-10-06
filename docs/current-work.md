@@ -7,22 +7,30 @@ overnight regression). Live file: update whenever verified state changes.
 
 ## Active slice
 
-**Phase 1 step 1 — "The World Is Read" (ESM walk: DONE)**
+**Phase 1 step 1 — ESM walk + census: DONE (Round 4)**
 
-- [x] Data: `docs/formats/esm-records.md` (cited: UESP, xNVSE, OpenNV, in-file)
-- [x] Archive: synthetic mini-ESM golden test (runs in CI, no game files)
-- [x] Real-file golden: TES4 header + GRUP descent + census + digest
-- [x] CLI: `mojave --esm-info`
-- [x] **Discovered invariant:** HEDR `numRecords` = walked records + GRUP headers
-      (465,016 + 77,000 = 542,016 exactly on the vanilla master)
-- [x] 107 unique record types enumerated; digest `71f57e617a2dbfe1` (stable)
+- [x] TES4 header, GRUP descent, census, digest, EDID samples
+- [x] `mojave --discover` · `--esm-info` · `--esm-census`
+- [x] Golden invariants: `walked + groups == HEDR numRecords`; census sums; sample EDIDs
+- [x] CI GREEN on Linux + Windows (portable SetEnv, Windows ScanRegistry, MSVC flag split)
+- [x] Progress-card ritual delivered to 10-of-spades, raul, randall-clark
+
+## Round log
+
+| Round | Slice | Discovery |
+|---|---|---|
+| 1 | Skeleton + AssetLocator + VDF | discover finds real installs |
+| 2 | ESM header + goldens | FNV master: v1.34, 542,016 records |
+| 3 | GRUP descent census | `walked + groups == HEDR` exactly |
+| 4 | Per-type census + EDID + CI hardening | 107 types; named cells (HooverDamIntPowerPlant01), worldspace (WastelandNV) |
 
 ## Next slice candidates (morning triage pick)
 
-1. **Per-type census + first subrecord parser** → FormDB skeleton
-   (pick one type: CELL/WRLD for the world path, or WEAP as a small warm-up)
-2. **BSA mounting** → VFS reads `Fallout - Meshes.bsa` / `Textures.bsa`,
-   entry count + extract-one-mesh goldens (needed before NIF/DDS)
+1. **Cell REFR dump → top-down PNG map** of a real cell (e.g. Goodsprings):
+   parse one CELL's REFR positions → plot → the first VISIBLE world output
+   before the renderer exists. Strong progress-card material.
+2. **Subrecord → FormDB skeleton** (generalize beyond EDID).
+3. **BSA mounting → VFS** (needed before NIF/DDS).
 
 ## Reporting ritual (Commander directive, 2026-10-05)
 
