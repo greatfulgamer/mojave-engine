@@ -23,7 +23,15 @@ overnight regression). Live file: update whenever verified state changes.
 | 2 | ESM header + goldens | FNV master: v1.34, 542,016 records |
 | 3 | GRUP descent census | `walked + groups == HEDR` exactly |
 | 4 | Per-type census + EDID + CI hardening | 107 types; named cells; CI green both platforms |
-| 5 | `--find` + `--cell-map` (REFR/ACHR positions → PPM) | **Goodsprings (0xdaebb): 156 objects plotted at raw world coords — first picture of the game world** |
+| 5 | `--find` + `--cell-map` (REFR/ACHR positions → PPM) | Goodsprings 156 objects plotted (dot plot — off-path, superseded) |
+| 6 | `--terrain-map` (LAND/VHGT → hillshade) | **Real terrain: single cell continuous; FNV compression flag 0x40000; VHGT 1096B; zlib** |
+| 7 | Terrain research + live display | **Worldspace mixing discovered (4 worldspaces share grid coords); VHGT column-major; render live on raul** |
+
+## Open research item (do NOT patch further without it)
+
+Seamless multi-cell terrain: exact cell placement/orientation. Next RESEARCHER task:
+study OpenMW's *terrain rendering* placement code (not just loadland) and copy the
+proven convention. Then implement once, with an edge-continuity golden test.
 
 ## Next slice candidates (morning triage pick)
 
