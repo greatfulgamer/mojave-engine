@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
         try {
             auto hits = mojave::asset::EsmParser::FindByEdid(esm, argv[2]);
             std::cout << "matches for '" << argv[2] << "': " << hits.size() << "\n";
-            for (size_t i = 0; i < hits.size() && i < 25; ++i)
+            for (size_t i = 0; i < hits.size(); ++i)
                 std::cout << "  " << hits[i].type << " 0x" << std::hex
                           << hits[i].formId << std::dec << "  " << hits[i].edid << "\n";
         } catch (const std::exception& e) { std::cerr << "ERROR: " << e.what() << "\n"; return 1; }
