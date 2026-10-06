@@ -85,12 +85,19 @@ EsmStats EsmParser::Parse(const fs::path& esmPath) {
         off += subSize;
     }
 
-    // Walk top-level GRUPs, counting records.
+    // Walk GRUPs with a depth stack (playbook: proper group semantics, not
+    // seek-past). Flat census of every record + top-level group distinction.
+    std::vector<uint64_t> groupEnds;  // stack: end offset of each open GRUP
     std::vector<unsigned char> rh(kRecordHeaderSize);
     std::set<std::string> types;
     uint64_t digest = 0;
-    while (f.good()) {
+    while (true) {
         const std::streampos pos = f.tellg();
+        if (pos < 0) break;
+        const uint64_t upos = static_cast<uint64_t>(pos);
+        while (!groupEnds.empty() && upos >= groupEnds.back()) groupEnds.pop_back();
+        if (upos >= fileSize) break;
+
         f.read(reinterpret_cast<char*>(rh.data()), kRecordHeaderSize);
         if (f.gcount() != static_cast<std::streamsize>(kRecordHeaderSize)) break;
         const std::string type = FourCC(rh.data());
@@ -98,17 +105,14 @@ EsmStats EsmParser::Parse(const fs::path& esmPath) {
         const uint32_t formId = ReadU32(rh.data() + 12);
 
         if (type == "GRUP") {
-            ++stats.topLevelGroups;
-            // Skip the group payload; the walker will encounter nested records
-            // as top-level scans only when groups are flattened. For bounded
-            // counting we step past group headers we've already consumed.
-            f.seekg(pos + std::streamoff(size));
-            continue;
+            ++stats.groupsSeen;
+            if (groupEnds.empty()) ++stats.topLevelGroups;
+            groupEnds.push_back(upos + size); // group size includes its 24B header
+            continue;                         // descend: next read is first child
         }
         ++stats.walkedRecords;
         types.insert(type);
         digest = Fnv1a(digest, reinterpret_cast<const unsigned char*>(type.data()), 4);
-        digest = Fnv1a(digest, reinterpret_cast<const unsigned char*>(&size), 4);
         digest = Fnv1a(digest, reinterpret_cast<const unsigned char*>(&formId), 4);
         f.seekg(pos + std::streamoff(kRecordHeaderSize + size));
     }

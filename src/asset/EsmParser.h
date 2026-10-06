@@ -21,11 +21,12 @@ struct EsmHeader {
 
 struct EsmStats {
     EsmHeader header;
-    uint64_t walkedRecords = 0;   // records seen via GRUP traversal (top level)
-    uint64_t topLevelGroups = 0;
+    uint64_t walkedRecords = 0;   // every record reached via GRUP descent
+    uint64_t groupsSeen = 0;      // all GRUPs (any depth)
+    uint64_t topLevelGroups = 0;  // GRUPs at depth 0
     std::vector<std::string> recordTypes; // sorted unique 4CCs seen
     uint64_t fileSize = 0;
-    uint64_t digest = 0;          // FNV-1a over header+type+size+formID of walked records
+    uint64_t digest = 0;          // FNV-1a over type+formID of every walked record
 };
 
 class EsmParser {

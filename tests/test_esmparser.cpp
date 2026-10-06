@@ -81,10 +81,14 @@ int main() {
     auto s = EsmParser::Parse(p);
     assert(s.header.numRecords == 2);
     assert(s.header.version > 1.33f && s.header.version < 1.35f);
-    assert(s.walkedRecords == 0 && "records inside GRUP are not top-level walked yet");
+    assert(s.walkedRecords == 2 && "records inside the GRUP must be descended into");
     assert(s.topLevelGroups == 1);
+    assert(s.groupsSeen == 1);
+    assert(s.digest != 0);
+    assert(!s.recordTypes.empty() && s.recordTypes[0] == "WEAP");
     std::cout << "PASS: synthetic ESM golden (version=" << s.header.version
               << ", numRecords=" << s.header.numRecords
+              << ", walked=" << s.walkedRecords
               << ", groups=" << s.topLevelGroups << ")\n";
     fs::remove(p);
 
@@ -103,11 +107,20 @@ int main() {
     auto real = EsmParser::Parse(esm);
     std::cout << "PASS: real esm — version=" << real.header.version
               << " numRecords=" << real.header.numRecords
-              << " groups=" << real.topLevelGroups
+              << " walked=" << real.walkedRecords
+              << " groups=" << real.groupsSeen
               << " fileSize=" << real.fileSize
               << " digest=" << std::hex << real.digest << std::dec << "\n";
     assert(real.header.version > 1.33f && real.header.version < 1.35f);
     assert(real.header.numRecords > 100000 && "FNV master should have >100k records");
+    assert(real.walkedRecords > 500000 && "GRUP descent must reach the bulk of the file");
+    // Cross-check: HEDR count vs walked census (UESP notes they can differ in
+    // modded files; require within 5% for the vanilla master).
+    const uint64_t diff = real.walkedRecords > real.header.numRecords
+                              ? real.walkedRecords - real.header.numRecords
+                              : real.header.numRecords - real.walkedRecords;
+    assert(diff <= real.header.numRecords / 20 && "walked census must match HEDR within 5%");
+    assert(real.digest != 0);
     std::cout << "ALL ESMPARSER TESTS PASSED\n";
     return 0;
 }
