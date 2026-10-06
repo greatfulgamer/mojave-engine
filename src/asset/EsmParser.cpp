@@ -1,5 +1,6 @@
 #include "asset/EsmParser.h"
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <set>
@@ -143,6 +144,178 @@ EsmStats EsmParser::Parse(const fs::path& esmPath) {
     stats.recordTypes.assign(types.begin(), types.end());
     stats.digest = digest;
     return stats;
+}
+
+namespace {
+
+// Read the EDID subrecord (if it is the first subrecord) from record data.
+std::string ReadLeadingEdid(std::ifstream& f, uint32_t dataSize, uint32_t flags) {
+    if ((flags & 0x200) || dataSize < 6) return {};
+    std::vector<unsigned char> sub(6);
+    f.read(reinterpret_cast<char*>(sub.data()), 6);
+    if (f.gcount() != 6 || FourCC(sub.data()) != "EDID") return {};
+    const uint16_t subSize = ReadU16(sub.data() + 4);
+    if (subSize == 0 || subSize >= 256) return {};
+    std::vector<char> name(subSize);
+    f.read(name.data(), subSize);
+    if (f.gcount() != subSize) return {};
+    std::string s(name.data(), subSize);
+    while (!s.empty() && (s.back() == '\0' || s.back() == '\r' || s.back() == '\n'))
+        s.pop_back();
+    return s;
+}
+
+} // namespace
+
+std::vector<NamedRecord> EsmParser::FindByEdid(const fs::path& esmPath,
+                                               const std::string& substr) {
+    std::vector<NamedRecord> out;
+    std::ifstream f(esmPath, std::ios::binary);
+    if (!f) throw std::runtime_error("EsmParser: cannot open " + esmPath.string());
+
+    f.seekg(0, std::ios::end);
+    const uint64_t fileSize = static_cast<uint64_t>(f.tellg());
+    const std::vector<unsigned char> hdr = [&] {
+        std::vector<unsigned char> h(kRecordHeaderSize);
+        f.seekg(0);
+        f.read(reinterpret_cast<char*>(h.data()), kRecordHeaderSize);
+        return h;
+    }();
+    (void)hdr;
+    // skip header record data
+    f.seekg(0);
+    {
+        std::vector<unsigned char> h(kRecordHeaderSize);
+        f.read(reinterpret_cast<char*>(h.data()), kRecordHeaderSize);
+        const uint32_t ds = ReadU32(h.data() + 4);
+        f.seekg(std::streamoff(kRecordHeaderSize + ds));
+    }
+
+    std::vector<unsigned char> rh(kRecordHeaderSize);
+    while (true) {
+        const std::streampos pos = f.tellg();
+        if (pos < 0 || static_cast<uint64_t>(pos) >= fileSize) break;
+        f.read(reinterpret_cast<char*>(rh.data()), kRecordHeaderSize);
+        if (f.gcount() != static_cast<std::streamsize>(kRecordHeaderSize)) break;
+        const std::string type = FourCC(rh.data());
+        const uint32_t size = ReadU32(rh.data() + 4);
+        const uint32_t flags = ReadU32(rh.data() + 8);
+        const uint32_t formId = ReadU32(rh.data() + 12);
+        if (type == "GRUP") continue;
+        const std::string edid = ReadLeadingEdid(f, size, flags);
+        if (!edid.empty() && edid.find(substr) != std::string::npos)
+            out.push_back({type, formId, edid});
+        f.seekg(pos + std::streamoff(kRecordHeaderSize + size));
+    }
+    return out;
+}
+
+std::vector<CellRef> EsmParser::CellReferences(const fs::path& esmPath,
+                                               uint32_t cellFormId) {
+    std::vector<CellRef> out;
+    std::ifstream f(esmPath, std::ios::binary);
+    if (!f) throw std::runtime_error("EsmParser: cannot open " + esmPath.string());
+    f.seekg(0, std::ios::end);
+    const uint64_t fileSize = static_cast<uint64_t>(f.tellg());
+    f.seekg(0);
+    {
+        std::vector<unsigned char> h(kRecordHeaderSize);
+        f.read(reinterpret_cast<char*>(h.data()), kRecordHeaderSize);
+        const uint32_t ds = ReadU32(h.data() + 4);
+        f.seekg(std::streamoff(kRecordHeaderSize + ds));
+    }
+
+    std::vector<uint64_t> groupEnds;   // open GRUP ends
+    std::vector<bool> targetGroups;   // parallel: is this the target cell's group?
+    std::vector<unsigned char> rh(kRecordHeaderSize);
+    while (true) {
+        const std::streampos pos = f.tellg();
+        if (pos < 0) break;
+        const uint64_t upos = static_cast<uint64_t>(pos);
+        while (!groupEnds.empty() && upos >= groupEnds.back()) {
+            groupEnds.pop_back();
+            targetGroups.pop_back();
+        }
+        if (upos >= fileSize) break;
+        f.read(reinterpret_cast<char*>(rh.data()), kRecordHeaderSize);
+        if (f.gcount() != static_cast<std::streamsize>(kRecordHeaderSize)) break;
+        const std::string type = FourCC(rh.data());
+        const uint32_t size = ReadU32(rh.data() + 4);
+        const uint32_t flags = ReadU32(rh.data() + 8);
+        const uint32_t formId = ReadU32(rh.data() + 12);
+
+        if (type == "GRUP") {
+            // GRUP layout: type(4) size(4) label(4) groupType(4) ...
+            const uint32_t label = ReadU32(rh.data() + 8);
+            const uint32_t gtype = ReadU32(rh.data() + 12);
+            const bool isTarget =
+                (label == cellFormId) || (gtype == 8 || gtype == 6) &&
+                !groupEnds.empty() && targetGroups.back();
+            groupEnds.push_back(upos + size);
+            targetGroups.push_back(isTarget);
+            continue;
+        }
+
+        const bool inTarget = !targetGroups.empty() && targetGroups.back();
+        if (inTarget && (type == "REFR" || type == "ACHR") && !(flags & 0x200) &&
+            size >= 6) {
+            // DATA subrecord: x,y,z (float32) + rotation, 24 bytes in FNV.
+            std::vector<unsigned char> d(size);
+            f.read(reinterpret_cast<char*>(d.data()), size);
+            if (f.gcount() == static_cast<std::streamsize>(size)) {
+                for (size_t off = 0; off + 6 <= size;) {
+                    const std::string sub = FourCC(d.data() + off);
+                    const uint16_t ss = ReadU16(d.data() + off + 4);
+                    if (off + 6 + ss > size) break;
+                    if (sub == "DATA" && ss >= 12) {
+                        CellRef r;
+                        r.formId = formId;
+                        r.x = ReadF32(d.data() + off + 6);
+                        r.y = ReadF32(d.data() + off + 10);
+                        r.z = ReadF32(d.data() + off + 14);
+                        out.push_back(r);
+                        break;
+                    }
+                    off += 6 + ss;
+                }
+            }
+        }
+        f.seekg(pos + std::streamoff(kRecordHeaderSize + size));
+    }
+    return out;
+}
+
+bool EsmParser::WritePpm(const std::vector<CellRef>& refs, const fs::path& out,
+                         int width, int height) {
+    if (refs.empty() || width <= 0 || height <= 0) return false;
+    float minX = refs[0].x, maxX = refs[0].x, minY = refs[0].y, maxY = refs[0].y;
+    for (const auto& r : refs) {
+        minX = std::min(minX, r.x); maxX = std::max(maxX, r.x);
+        minY = std::min(minY, r.y); maxY = std::max(maxY, r.y);
+    }
+    const float spanX = std::max(maxX - minX, 1.0f);
+    const float spanY = std::max(maxY - minY, 1.0f);
+    const int pad = 20;
+    const int w = width, h = height;
+    std::vector<unsigned char> img(size_t(w) * h * 3, 0);
+    for (size_t i = 0; i < img.size(); i += 3) { img[i] = 11; img[i+1] = 11; img[i+2] = 11; }
+    for (const auto& r : refs) {
+        const int px = pad + int((r.x - minX) / spanX * (w - 2 * pad));
+        const int py = h - 1 - (pad + int((r.y - minY) / spanY * (h - 2 * pad)));
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dx = -1; dx <= 1; ++dx) {
+                const int x = px + dx, y = py + dy;
+                if (x < 0 || y < 0 || x >= w || y >= h) continue;
+                const size_t idx = (size_t(y) * w + x) * 3;
+                img[idx] = 142; img[idx + 1] = 245; img[idx + 2] = 142;
+            }
+    }
+    std::ofstream o(out, std::ios::binary);
+    if (!o) return false;
+    o << "P6\n" << w << " " << h << "\n255\n";
+    o.write(reinterpret_cast<const char*>(img.data()),
+            static_cast<std::streamsize>(img.size()));
+    return static_cast<bool>(o);
 }
 
 } // namespace mojave::asset
