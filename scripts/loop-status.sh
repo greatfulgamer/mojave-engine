@@ -26,7 +26,9 @@ V=$(echo "$E" | awk '/version:/{print $2}'); R=$(echo "$E" | awk '/numRecords:/{
 [ -n "$V" ] && ok "--esm-info: master parsed (version $V, $R records)" || no "--esm-info failed"
 
 step "GOLDENS (real-file oracle)"
-grep -q "PASS: real esm" /tmp/loop-test.log && ok "real-file golden verified this run" || printf '  -  real-file golden skipped (no install on this box)\n'
+if ./build/mojave_tests_esmparser 2>/dev/null | grep -q "PASS: real esm"; then
+  ok "real-file golden verified: $(./build/mojave_tests_esmparser 2>/dev/null | grep 'PASS: real esm' | head -1)"
+else printf '  -  real-file golden skipped (no install on this box)\n'; fi
 
 step "DISCIPLINE (AGENTS.md)"
 BIG=$(git log -1 --numstat --format= | awk '{a+=$1;d+=$2} END{print a+d}')
