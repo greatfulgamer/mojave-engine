@@ -50,9 +50,11 @@ bool DecodeVhgt(const std::vector<unsigned char>& d, std::vector<float>& out) {
     out.assign(33 * 33, 0.0f);
     float cur = base;
     const int8_t* deltas = reinterpret_cast<const int8_t*>(d.data() + 4);
+    // Traversal is COLUMN-major (verified by shared-edge continuity tests:
+    // transposed read cuts neighbour-edge mismatch ~3x). out[row*33+col].
     for (int i = 0; i < 33 * 33; ++i) {
         cur += static_cast<float>(deltas[i]) * 8.0f;
-        out[i] = cur;
+        out[(i % 33) * 33 + (i / 33)] = cur;
     }
     return true;
 }
@@ -78,6 +80,10 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
     std::map<std::pair<int,int>, CellTerrain> cells;
     int lastGx = INT32_MIN, lastGy = INT32_MIN;
     bool haveGrid = false;
+    std::string lastWorld;
+    // Multiple worldspaces (WastelandNV, TheStripWorldNew, WastelandNVmini,
+    // Lucky38World) share exterior grid coordinates — must scope to one.
+    const std::string kTargetWorld = "WastelandNV";
     uint64_t cellsWithXclc = 0, landsSeen = 0, landsCompressed = 0, landsInRange = 0,
              cellsSeen = 0, cellsCompressed = 0;
     std::vector<unsigned char> rh(kRecHdr);
@@ -96,7 +102,25 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
             if (RecordIsCompressed(flags)) ++landsCompressed;
         }
 
-        const bool wantedType = (type == "CELL" || type == "LAND");
+        if (type == "WRLD") {
+            // EDID is the first subrecord of a worldspace record.
+            if (size >= 6) {
+                std::vector<unsigned char> rawW(size);
+                f.read(reinterpret_cast<char*>(rawW.data()), size);
+                std::vector<unsigned char> w;
+                if (f.gcount() == static_cast<std::streamsize>(size) &&
+                    RecordData(rawW, flags, w) && w.size() >= 6 && CC(w.data()) == "EDID") {
+                    const uint16_t ss = U16(w.data() + 4);
+                    if (6u + ss <= w.size())
+                        lastWorld = std::string(reinterpret_cast<const char*>(w.data() + 6), ss);
+                    while (!lastWorld.empty() && lastWorld.back() == '\0') lastWorld.pop_back();
+                }
+            }
+            f.seekg(pos + std::streamoff(kRecHdr + size));
+            continue;
+        }
+        const bool wantedType = (type == "CELL" || type == "LAND") &&
+                                lastWorld == kTargetWorld;
         if (wantedType && size >= 6) {
             std::vector<unsigned char> raw(size);
             f.read(reinterpret_cast<char*>(raw.data()), size);
