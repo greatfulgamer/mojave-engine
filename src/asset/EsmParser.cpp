@@ -40,8 +40,9 @@ uint64_t Fnv1a(uint64_t h, const unsigned char* data, size_t n) {
     return h;
 }
 
-// Record header is 20 bytes: type(4) size(4) flags(4) formID(4) ts(2) vci(2) iv(2) unk(2)
-constexpr size_t kRecordHeaderSize = 20;
+// Record header is 24 bytes: type(4) size(4) flags(4) formID(4) ts(2) vci(2) iv(2) unk(2)
+// Citation: docs/formats/esm-records.md (UESP Tes4Mod record header).
+constexpr size_t kRecordHeaderSize = 24;
 constexpr size_t kGrupHeaderSize = 24;
 
 } // namespace
