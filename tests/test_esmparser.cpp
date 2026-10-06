@@ -119,6 +119,25 @@ int main() {
     assert(real.walkedRecords + real.groupsSeen == real.header.numRecords &&
            "HEDR total must equal walked records + group headers");
     assert(real.digest != 0);
+    // Census invariants (FormDB seed).
+    uint64_t sum = 0;
+    for (const auto& [t, c] : real.typeCounts) sum += c;
+    assert(sum == real.walkedRecords && "type census must sum to walked records");
+    for (const char* t : {"CELL", "REFR", "NPC_", "WEAP", "WRLD", "CONT", "STAT"})
+        assert(real.typeCounts.count(t) && "expected record type missing from census");
+    assert(real.typeCounts.at("CELL") > 1000 && "FNV has thousands of cells");
+    assert(real.typeCounts.at("REFR") > 10000 && "FNV has tens of thousands of refs");
+    // EDID samples extracted (FormDB seed).
+    assert(!real.typeSamples["CELL"].empty() && "CELL EDID samples expected");
+    std::cout << "PASS: census — " << real.typeCounts.size() << " types, top: ";
+    {
+        std::vector<std::pair<uint64_t, std::string>> v;
+        for (const auto& [t, c] : real.typeCounts) v.push_back({c, t});
+        std::sort(v.begin(), v.end(), std::greater<>());
+        for (size_t i = 0; i < 5 && i < v.size(); ++i)
+            std::cout << v[i].second << "=" << v[i].first << " ";
+        std::cout << "\n  sample CELL: " << real.typeSamples["CELL"][0] << "\n";
+    }
     std::cout << "ALL ESMPARSER TESTS PASSED\n";
     return 0;
 }

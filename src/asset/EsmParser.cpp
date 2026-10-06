@@ -112,8 +112,31 @@ EsmStats EsmParser::Parse(const fs::path& esmPath) {
         }
         ++stats.walkedRecords;
         types.insert(type);
+        ++stats.typeCounts[type];
         digest = Fnv1a(digest, reinterpret_cast<const unsigned char*>(type.data()), 4);
         digest = Fnv1a(digest, reinterpret_cast<const unsigned char*>(&formId), 4);
+
+        // FormDB seed: sample the EDID (editor ID) subrecord when cheap to read.
+        // Skip compressed records (flags bit 0x200) — their body needs zlib.
+        const uint32_t flags = ReadU32(rh.data() + 8);
+        if (!(flags & 0x200) && size >= 6 && stats.typeSamples[type].size() < 4) {
+            std::vector<unsigned char> sub(6);
+            f.read(reinterpret_cast<char*>(sub.data()), 6);
+            if (f.gcount() == 6 && FourCC(sub.data()) == "EDID") {
+                const uint16_t subSize = ReadU16(sub.data() + 4);
+                if (subSize > 0 && subSize < 256) {
+                    std::vector<char> name(subSize);
+                    f.read(name.data(), subSize);
+                    if (f.gcount() == subSize) {
+                        std::string s(name.data(), subSize);
+                        while (!s.empty() && (s.back() == '\0' || s.back() == '\r' ||
+                                              s.back() == '\n'))
+                            s.pop_back();
+                        if (!s.empty()) stats.typeSamples[type].push_back(s);
+                    }
+                }
+            }
+        }
         f.seekg(pos + std::streamoff(kRecordHeaderSize + size));
     }
 

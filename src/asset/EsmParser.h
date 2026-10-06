@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,8 @@ struct EsmStats {
     uint64_t groupsSeen = 0;      // all GRUPs (any depth)
     uint64_t topLevelGroups = 0;  // GRUPs at depth 0
     std::vector<std::string> recordTypes; // sorted unique 4CCs seen
+    std::map<std::string, uint64_t> typeCounts;        // census per 4CC
+    std::map<std::string, std::vector<std::string>> typeSamples; // first EDIDs per 4CC
     uint64_t fileSize = 0;
     uint64_t digest = 0;          // FNV-1a over type+formID of every walked record
 };
