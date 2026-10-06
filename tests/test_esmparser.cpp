@@ -3,11 +3,13 @@
 //   L1 goldens: synthetic miniature ESM fixture — runs everywhere (CI).
 //   Real-file golden: parses the player's FalloutNV.esm when available
 //                     (MOJAVE_GAME_PATH set or auto-discovered); prints SKIP otherwise.
+#include <algorithm>
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <vector>
 
