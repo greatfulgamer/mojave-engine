@@ -13,6 +13,7 @@ add_library(mojave_core STATIC
     src/platform/AssetLocator.cpp
     src/platform/Vdf.cpp
     src/asset/EsmParser.cpp
+    src/asset/TerrainMap.cpp
 )
 target_include_directories(mojave_core PUBLIC src)
 if(MSVC)

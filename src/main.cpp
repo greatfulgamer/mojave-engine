@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "asset/EsmParser.h"
+#include "asset/TerrainMap.h"
 #include "platform/AssetLocator.h"
 
 namespace fs = std::filesystem;
@@ -155,7 +156,34 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    if (cmd == "--terrain-map") {
+        // Usage: --terrain-map <gx> <gy> [gW] [gH] [outPpm]
+        if (argc < 4) { std::cerr << "usage: --terrain-map <gx> <gy> [gW] [gH] [out]\n"; return 1; }
+        const int gx = std::atoi(argv[2]), gy = std::atoi(argv[3]);
+        const int gW = (argc > 4) ? std::atoi(argv[4]) : 4;
+        const int gH = (argc > 5) ? std::atoi(argv[5]) : 4;
+        fs::path outPpm = (argc > 6) ? fs::path(argv[6])
+                                     : fs::path("/tmp/opencode/progress/terrain.ppm");
+        auto found = mojave::platform::AssetLocator::Discover();
+        if (found.empty()) { std::cerr << "No install discovered.\n"; return 1; }
+        const fs::path esm = found.front().root / "Data" / "FalloutNV.esm";
+        try {
+            fs::create_directories(outPpm.parent_path());
+            auto t = mojave::asset::TerrainMap::Render(esm, gx, gy, gW, gH, outPpm, 8);
+            std::cout << "terrain: cells " << gx << "," << gy << " .. "
+                      << (gx + gW - 1) << "," << (gy + gH - 1)
+                      << "  (" << t.cellsComposite << "/" << (gW * gH) << " cells found)\n"
+                      << "  height range (world units): " << int(t.minZ) << " .. " << int(t.maxZ)
+                      << "  -> " << int(t.maxZ - t.minZ) << " units vertical\n"
+                      << "  image: " << t.width << "x" << t.height << "\n";
+            if (t.wrote) std::cout << "  written: " << outPpm.string() << "\n";
+            else std::cerr << "  FAILED to write image\n";
+        } catch (const std::exception& e) { std::cerr << "ERROR: " << e.what() << "\n"; return 1; }
+        return 0;
+    }
+
     std::cout << "Usage: mojave --discover | --esm-info [path] | --esm-census [path]"
-              << " | --find <substr> [esm] | --cell-map <edid> [esm]\n";
+              << " | --find <substr> [esm] | --cell-map <edid> [esm]"
+              << " | --terrain-map <gx> <gy> [gW] [gH] [out]\n";
     return 0;
 }
