@@ -22,7 +22,8 @@ overnight regression). Live file: update whenever verified state changes.
 | 1 | Skeleton + AssetLocator + VDF | discover finds real installs |
 | 2 | ESM header + goldens | FNV master: v1.34, 542,016 records |
 | 3 | GRUP descent census | `walked + groups == HEDR` exactly |
-| 4 | Per-type census + EDID + CI hardening | 107 types; named cells (HooverDamIntPowerPlant01), worldspace (WastelandNV) |
+| 4 | Per-type census + EDID + CI hardening | 107 types; named cells; CI green both platforms |
+| 5 | `--find` + `--cell-map` (REFR/ACHR positions → PPM) | **Goodsprings (0xdaebb): 156 objects plotted at raw world coords — first picture of the game world** |
 
 ## Next slice candidates (morning triage pick)
 
