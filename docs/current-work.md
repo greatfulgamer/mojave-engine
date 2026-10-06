@@ -24,6 +24,17 @@ overnight regression). Live file: update whenever verified state changes.
 2. **BSA mounting** → VFS reads `Fallout - Meshes.bsa` / `Textures.bsa`,
    entry count + extract-one-mesh goldens (needed before NIF/DDS)
 
+## Reporting ritual (Commander directive, 2026-10-05)
+
+Every round ends with a **progress card** (PNG + TXT) delivered to the
+Commander Inbox on all three machines:
+- 10 of Spades: `~/Documents/Commanders-Inbox/` (+ lowercase variant)
+- raul-tejada: `~/Documents/Commander Inbox/`
+- randall-clark: `~/Documents/Commander Inbox/`
+
+Card = gates + what this round did + the game-read facts. Files produced in
+`/tmp/opencode/progress/`. The card generator is `scripts/progress-card.sh`.
+
 ## Verified state
 
 - `mojave --discover` finds real installs (general-lee-oliver, Bazzite)
