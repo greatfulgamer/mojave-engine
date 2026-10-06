@@ -40,16 +40,18 @@ struct CellTerrain {
     bool valid = false;
 };
 
-// LAND VHGT: float32 offset (world units) then 33*33 int8 deltas,
-// each delta in units of 8 world units (UESP Tes4Mod:Land).
+// LAND VHGT: float32 base height (world units) then 33*33 int8 deltas,
+// each delta in units of 8 world units. Every delta (including the first)
+// advances the running height; h[i] = base + sum(deltas[0..i]) * 8.
+// Citation: docs/formats/land-records.md (UESP Tes4Mod:Land; OpenMW loader).
 bool DecodeVhgt(const std::vector<unsigned char>& d, std::vector<float>& out) {
     if (d.size() < 4 + 33 * 33) return false;
-    const float start = F32(d.data());
+    const float base = F32(d.data());
     out.assign(33 * 33, 0.0f);
-    float cur = start;
+    float cur = base;
     const int8_t* deltas = reinterpret_cast<const int8_t*>(d.data() + 4);
     for (int i = 0; i < 33 * 33; ++i) {
-        if (i > 0) cur += static_cast<float>(deltas[i]) * 8.0f;
+        cur += static_cast<float>(deltas[i]) * 8.0f;
         out[i] = cur;
     }
     return true;
@@ -193,9 +195,10 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
             const unsigned char v =
                 static_cast<unsigned char>(std::clamp(base * (0.35f + 0.9f * shade), 0.0f, 255.0f));
             const size_t idx = (size_t(py) * W + px) * 3;
-            img[idx] = static_cast<unsigned char>(v * 0.75f);  // sandy tint
-            img[idx + 1] = v;
-            img[idx + 2] = static_cast<unsigned char>(v * 0.55f);
+            // Desert palette: sand/rock (not green — Commander's note).
+            img[idx] = static_cast<unsigned char>(std::clamp(v * 1.00f, 0.0f, 255.0f));
+            img[idx + 1] = static_cast<unsigned char>(std::clamp(v * 0.86f, 0.0f, 255.0f));
+            img[idx + 2] = static_cast<unsigned char>(std::clamp(v * 0.60f, 0.0f, 255.0f));
         }
     }
     std::ofstream o(outPpm, std::ios::binary);
