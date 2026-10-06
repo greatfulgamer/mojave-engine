@@ -206,7 +206,9 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
             const int ym = std::max(vy - 1, 0), yp = std::min(vy + 1, vH - 1);
             const float dzdx = (grid[vy * vW + xp] - grid[vy * vW + xm]);
             const float dzdy = (grid[yp * vW + vx] - grid[ym * vW + vx]);
-            const float nx = -dzdx * 0.002f, ny = -dzdy * 0.002f, nz = 1.0f;
+            // Vertex spacing: one exterior cell = 4096 world units / 32 = 128.
+            // Slopes are dz per 2*128 units (central difference).
+            const float nx = -dzdx / 256.0f, ny = -dzdy / 256.0f, nz = 1.0f;
             const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
             const float lx = -0.57f, ly = 0.57f, lz = 0.59f; // NW light
             float shade = (nx * lx + ny * ly + nz * lz) / len;
