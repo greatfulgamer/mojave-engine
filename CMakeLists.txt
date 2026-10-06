@@ -15,7 +15,11 @@ add_library(mojave_core STATIC
     src/asset/EsmParser.cpp
 )
 target_include_directories(mojave_core PUBLIC src)
-target_compile_options(mojave_core PRIVATE -Wall -Wextra -Wpedantic)
+if(MSVC)
+    target_compile_options(mojave_core PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(mojave_core PRIVATE -Wall -Wextra -Wpedantic)
+endif()
 
 # ── Executable ────────────────────────────────────────────────
 add_executable(mojave src/main.cpp)
