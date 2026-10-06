@@ -183,8 +183,20 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
 
     const int W = vW * ppv, H = vH * ppv;
     res.width = W; res.height = H; res.minZ = mn; res.maxZ = mx;
+    // Robust height range for shading: clamp to the 2nd..98th percentile so
+    // void/degenerate edge cells do not flatten the relief contrast.
+    std::vector<float> sorted;
+    sorted.reserve(grid.size());
+    for (size_t i = 0; i < grid.size(); ++i)
+        if (have[i]) sorted.push_back(grid[i]);
+    std::sort(sorted.begin(), sorted.end());
+    float lo = mn, hi = mx;
+    if (!sorted.empty()) {
+        lo = sorted[size_t(sorted.size() * 0.02)];
+        hi = sorted[std::min(sorted.size() - 1, size_t(sorted.size() * 0.98))];
+    }
+    const float span = std::max(hi - lo, 1.0f);
     std::vector<unsigned char> img(size_t(W) * H * 3);
-    const float span = std::max(mx - mn, 1.0f);
     // Hillshade: light from NW, slope from central differences.
     for (int py = 0; py < H; ++py) {
         for (int px = 0; px < W; ++px) {
@@ -199,7 +211,7 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
             const float lx = -0.57f, ly = 0.57f, lz = 0.59f; // NW light
             float shade = (nx * lx + ny * ly + nz * lz) / len;
             shade = std::clamp(shade, 0.0f, 1.0f);
-            const float t = (grid[vy * vW + vx] - mn) / span;
+            const float t = (grid[vy * vW + vx] - lo) / span;
             const unsigned char base = static_cast<unsigned char>(40 + 120 * t);
             const unsigned char v =
                 static_cast<unsigned char>(std::clamp(base * (0.35f + 0.9f * shade), 0.0f, 255.0f));
