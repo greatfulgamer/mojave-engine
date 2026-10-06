@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <stdexcept>
 
@@ -74,6 +75,8 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
     std::map<std::pair<int,int>, CellTerrain> cells;
     int lastGx = INT32_MIN, lastGy = INT32_MIN;
     bool haveGrid = false;
+    uint64_t cellsWithXclc = 0, landsSeen = 0, landsCompressed = 0, landsInRange = 0,
+             cellsSeen = 0;
     std::vector<unsigned char> rh(kRecHdr);
     while (true) {
         const std::streampos pos = f.tellg();
@@ -84,6 +87,11 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
         const uint32_t size = U32(rh.data() + 4);
         const uint32_t flags = U32(rh.data() + 8);
         if (type == "GRUP") continue;
+        if (type == "CELL") ++cellsSeen;
+        if (type == "LAND") {
+            ++landsSeen;
+            if (flags & 0x200) { ++landsCompressed; f.seekg(pos + std::streamoff(kRecHdr + size)); continue; }
+        }
 
         const bool wantedType = (type == "CELL" || type == "LAND");
         if (wantedType && !(flags & 0x200) && size >= 6) {
@@ -107,6 +115,7 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
                 } else { // LAND
                     if (haveGrid && lastGx >= gx0 && lastGx < gx0 + gW &&
                         lastGy >= gy0 && lastGy < gy0 + gH) {
+                        ++landsInRange;
                         for (size_t off = 0; off + 6 <= size;) {
                             const std::string sub = CC(d.data() + off);
                             const uint16_t ss = U16(d.data() + off + 4);
@@ -130,6 +139,11 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
         f.seekg(pos + std::streamoff(kRecHdr + size));
     }
 
+    std::cout << "  [debug] cellsSeen=" << cellsSeen
+              << " cellsWithXclc=" << cellsWithXclc
+              << " landsSeen=" << landsSeen
+              << " landsCompressed=" << landsCompressed
+              << " landsInRange=" << landsInRange << "\n";
     if (cells.empty()) return res;
 
     const int vW = gW * 32 + 1;   // shared edges between adjacent cells
