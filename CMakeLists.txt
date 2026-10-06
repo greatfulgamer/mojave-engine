@@ -16,6 +16,13 @@ add_library(mojave_core STATIC
     src/asset/TerrainMap.cpp
 )
 target_include_directories(mojave_core PUBLIC src)
+# zlib for FNV compressed records (flag 0x40000). Optional so CI stays green
+# on runners without zlib; terrain/EDID simply report unavailable when absent.
+find_package(ZLIB)
+if(ZLIB_FOUND)
+    target_compile_definitions(mojave_core PUBLIC MOJAVE_HAVE_ZLIB)
+    target_link_libraries(mojave_core PUBLIC ZLIB::ZLIB)
+endif()
 if(MSVC)
     target_compile_options(mojave_core PRIVATE /W4 /permissive-)
 else()

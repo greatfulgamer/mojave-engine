@@ -1,4 +1,5 @@
 #include "asset/TerrainMap.h"
+#include "asset/RecordData.h"
 
 #include <algorithm>
 #include <cmath>
@@ -87,23 +88,25 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
         const uint32_t size = U32(rh.data() + 4);
         const uint32_t flags = U32(rh.data() + 8);
         if (type == "GRUP") continue;
-        if (type == "CELL") { ++cellsSeen; if (flags & 0x200) ++cellsCompressed; }
+        if (type == "CELL") { ++cellsSeen; if (RecordIsCompressed(flags)) ++cellsCompressed; }
         if (type == "LAND") {
             ++landsSeen;
-            if (flags & 0x200) { ++landsCompressed; f.seekg(pos + std::streamoff(kRecHdr + size)); continue; }
+            if (RecordIsCompressed(flags)) ++landsCompressed;
         }
 
         const bool wantedType = (type == "CELL" || type == "LAND");
-        if (wantedType && !(flags & 0x200) && size >= 6) {
-            std::vector<unsigned char> d(size);
-            f.read(reinterpret_cast<char*>(d.data()), size);
-            if (f.gcount() == static_cast<std::streamsize>(size)) {
+        if (wantedType && size >= 6) {
+            std::vector<unsigned char> raw(size);
+            f.read(reinterpret_cast<char*>(raw.data()), size);
+            std::vector<unsigned char> d;
+            if (f.gcount() == static_cast<std::streamsize>(size) &&
+                RecordData(raw, flags, d)) {
                 if (type == "CELL") {
                     // XCLC carries the exterior grid: int32 x, int32 y.
-                    for (size_t off = 0; off + 6 <= size;) {
+                    for (size_t off = 0; off + 6 <= d.size();) {
                         const std::string sub = CC(d.data() + off);
                         const uint16_t ss = U16(d.data() + off + 4);
-                        if (off + 6 + ss > size) break;
+                        if (off + 6 + ss > d.size()) break;
                         if (sub == "XCLC" && ss >= 8) {
                             lastGx = I32(d.data() + off + 6);
                             lastGy = I32(d.data() + off + 10);
@@ -116,10 +119,10 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
                     if (haveGrid && lastGx >= gx0 && lastGx < gx0 + gW &&
                         lastGy >= gy0 && lastGy < gy0 + gH) {
                         ++landsInRange;
-                        for (size_t off = 0; off + 6 <= size;) {
+                        for (size_t off = 0; off + 6 <= d.size();) {
                             const std::string sub = CC(d.data() + off);
                             const uint16_t ss = U16(d.data() + off + 4);
-                            if (off + 6 + ss > size) break;
+                            if (off + 6 + ss > d.size()) break;
                             if (sub == "VHGT") {
                                 CellTerrain ct;
                                 ct.gx = lastGx; ct.gy = lastGy;

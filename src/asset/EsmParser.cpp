@@ -1,4 +1,5 @@
 #include "asset/EsmParser.h"
+#include "asset/RecordData.h"
 
 #include <algorithm>
 #include <cstring>
@@ -120,21 +121,21 @@ EsmStats EsmParser::Parse(const fs::path& esmPath) {
         // FormDB seed: sample the EDID (editor ID) subrecord when cheap to read.
         // Skip compressed records (flags bit 0x200) — their body needs zlib.
         const uint32_t flags = ReadU32(rh.data() + 8);
-        if (!(flags & 0x200) && size >= 6 && stats.typeSamples[type].size() < 4) {
-            std::vector<unsigned char> sub(6);
-            f.read(reinterpret_cast<char*>(sub.data()), 6);
-            if (f.gcount() == 6 && FourCC(sub.data()) == "EDID") {
-                const uint16_t subSize = ReadU16(sub.data() + 4);
-                if (subSize > 0 && subSize < 256) {
-                    std::vector<char> name(subSize);
-                    f.read(name.data(), subSize);
-                    if (f.gcount() == subSize) {
-                        std::string s(name.data(), subSize);
-                        while (!s.empty() && (s.back() == '\0' || s.back() == '\r' ||
-                                              s.back() == '\n'))
-                            s.pop_back();
-                        if (!s.empty()) stats.typeSamples[type].push_back(s);
-                    }
+        if (size >= 6 && size < 262144 && stats.typeSamples[type].size() < 4) {
+            std::vector<unsigned char> raw(size);
+            f.read(reinterpret_cast<char*>(raw.data()), size);
+            std::vector<unsigned char> rec;
+            if (f.gcount() == static_cast<std::streamsize>(size) &&
+                RecordData(raw, flags, rec) && rec.size() >= 6) {
+                const unsigned char* sub = rec.data();
+                if (FourCC(sub) == "EDID") {
+                const uint16_t subSize = ReadU16(rec.data() + 4);
+                if (subSize > 0 && subSize < 256 && 6u + subSize <= rec.size()) {
+                    std::string nm(reinterpret_cast<const char*>(rec.data() + 6), subSize);
+                    while (!nm.empty() && (nm.back() == '\0' || nm.back() == '\r' ||
+                                           nm.back() == '\n'))
+                        nm.pop_back();
+                    if (!nm.empty()) stats.typeSamples[type].push_back(nm);
                 }
             }
         }
@@ -150,16 +151,17 @@ namespace {
 
 // Read the EDID subrecord (if it is the first subrecord) from record data.
 std::string ReadLeadingEdid(std::ifstream& f, uint32_t dataSize, uint32_t flags) {
-    if ((flags & 0x200) || dataSize < 6) return {};
-    std::vector<unsigned char> sub(6);
-    f.read(reinterpret_cast<char*>(sub.data()), 6);
-    if (f.gcount() != 6 || FourCC(sub.data()) != "EDID") return {};
-    const uint16_t subSize = ReadU16(sub.data() + 4);
-    if (subSize == 0 || subSize >= 256) return {};
-    std::vector<char> name(subSize);
-    f.read(name.data(), subSize);
-    if (f.gcount() != subSize) return {};
-    std::string s(name.data(), subSize);
+    if (dataSize < 6 || dataSize >= 262144) return {};
+    std::vector<unsigned char> raw(dataSize);
+    f.read(reinterpret_cast<char*>(raw.data()), dataSize);
+    std::vector<unsigned char> rec;
+    if (f.gcount() != static_cast<std::streamsize>(dataSize) ||
+        !RecordData(raw, flags, rec) || rec.size() < 6)
+        return {};
+    if (FourCC(rec.data()) != "EDID") return {};
+    const uint16_t subSize = ReadU16(rec.data() + 4);
+    if (subSize == 0 || subSize >= 256 || 6u + subSize > rec.size()) return {};
+    std::string s(reinterpret_cast<const char*>(rec.data() + 6), subSize);
     while (!s.empty() && (s.back() == '\0' || s.back() == '\r' || s.back() == '\n'))
         s.pop_back();
     return s;
@@ -257,16 +259,17 @@ std::vector<CellRef> EsmParser::CellReferences(const fs::path& esmPath,
         }
 
         const bool inTarget = !targetGroups.empty() && targetGroups.back();
-        if (inTarget && (type == "REFR" || type == "ACHR") && !(flags & 0x200) &&
-            size >= 6) {
+        if (inTarget && (type == "REFR" || type == "ACHR") && size >= 6) {
             // DATA subrecord: x,y,z (float32) + rotation, 24 bytes in FNV.
-            std::vector<unsigned char> d(size);
-            f.read(reinterpret_cast<char*>(d.data()), size);
-            if (f.gcount() == static_cast<std::streamsize>(size)) {
-                for (size_t off = 0; off + 6 <= size;) {
+            std::vector<unsigned char> raw(size);
+            f.read(reinterpret_cast<char*>(raw.data()), size);
+            std::vector<unsigned char> d;
+            if (f.gcount() == static_cast<std::streamsize>(size) &&
+                RecordData(raw, flags, d)) {
+                for (size_t off = 0; off + 6 <= d.size();) {
                     const std::string sub = FourCC(d.data() + off);
                     const uint16_t ss = ReadU16(d.data() + off + 4);
-                    if (off + 6 + ss > size) break;
+                    if (off + 6 + ss > d.size()) break;
                     if (sub == "DATA" && ss >= 12) {
                         CellRef r;
                         r.formId = formId;
