@@ -39,7 +39,9 @@ int main(int argc, char** argv) {
                       << "  version:     " << s.header.version << "\n"
                       << "  numRecords:  " << s.header.numRecords << "\n"
                       << "  nextObjectId:" << s.header.nextObjectId << "\n"
-                      << "  groups:      " << s.topLevelGroups << "\n"
+                      << "  walked:      " << s.walkedRecords << "\n"
+                      << "  groups:      " << s.groupsSeen
+                      << " (top-level " << s.topLevelGroups << ")\n"
                       << "  recordTypes: " << s.recordTypes.size() << "\n"
                       << "  fileSize:    " << s.fileSize << "\n"
                       << "  digest:      " << std::hex << s.digest << std::dec << "\n";

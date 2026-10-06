@@ -113,13 +113,11 @@ int main() {
               << " digest=" << std::hex << real.digest << std::dec << "\n";
     assert(real.header.version > 1.33f && real.header.version < 1.35f);
     assert(real.header.numRecords > 100000 && "FNV master should have >100k records");
-    assert(real.walkedRecords > 500000 && "GRUP descent must reach the bulk of the file");
-    // Cross-check: HEDR count vs walked census (UESP notes they can differ in
-    // modded files; require within 5% for the vanilla master).
-    const uint64_t diff = real.walkedRecords > real.header.numRecords
-                              ? real.walkedRecords - real.header.numRecords
-                              : real.header.numRecords - real.walkedRecords;
-    assert(diff <= real.header.numRecords / 20 && "walked census must match HEDR within 5%");
+    assert(real.walkedRecords > 450000 && "GRUP descent must reach the bulk of the file");
+    // Discovered invariant (documented in docs/formats/esm-records.md):
+    // HEDR numRecords counts GRUP headers too: walked + groups == numRecords.
+    assert(real.walkedRecords + real.groupsSeen == real.header.numRecords &&
+           "HEDR total must equal walked records + group headers");
     assert(real.digest != 0);
     std::cout << "ALL ESMPARSER TESTS PASSED\n";
     return 0;

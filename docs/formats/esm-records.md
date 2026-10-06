@@ -77,9 +77,11 @@ docs and goldens.
 
 ## Determinism / golden notes
 
-- `numRecords` from HEDR is authoritative for the total record count.
-- The walk count (records seen via GRUP traversal) is compared against IHEAD/
-  header totals as a sanity cross-check (UESP notes these can differ from the
-  HEDR count in modded files — document, don't hide).
+- `numRecords` from HEDR is the authoritative total — **and it counts GRUP
+  headers**: verified on the vanilla master, `walked records (465,016) +
+  group headers (77,000) == HEDR numRecords (542,016)` exactly. Our golden
+  asserts this identity.
+- OpenMW's parser reports ~459,520 records for the same file (different group
+  accounting) — same order of magnitude, useful as an independent sanity check.
 - Goldens are generated from the player's own copy and committed as counts +
   hashes only (never game bytes — legal rule).
