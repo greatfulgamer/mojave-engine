@@ -167,7 +167,10 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
     std::vector<char> have(vW * vH, 0);
     float mn = 1e30f, mx = -1e30f;
     for (const auto& [key, ct] : cells) {
-        const int ox = (ct.gx - gx0) * 32, oy = (ct.gy - gy0) * 32;
+        // Cell-grid orientation: XCLC y increases southward in FNV while VHGT
+        // row 0 is the south edge, so flip the vertical placement.
+        const int ox = (ct.gx - gx0) * 32;
+        const int oy = (gy0 + gH - 1 - ct.gy) * 32;
         for (int y = 0; y < 33; ++y)
             for (int x = 0; x < 33; ++x) {
                 const int X = ox + x, Y = oy + y;
