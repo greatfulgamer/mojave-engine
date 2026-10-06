@@ -132,7 +132,16 @@ TerrainResult TerrainMap::Render(const fs::path& esmPath, int gx0, int gy0,
                                     std::vector<unsigned char>(d.begin() + off + 6,
                                                                d.begin() + off + 6 + ss),
                                     ct.h);
-                                if (ct.valid) cells[{ct.gx, ct.gy}] = std::move(ct);
+                                if (ct.valid) {
+                                    if (cells.size() < 6) {
+                                        float cmn=ct.h[0], cmx=ct.h[0];
+                                        for (float z : ct.h) { cmn=std::min(cmn,z); cmx=std::max(cmx,z); }
+                                        std::cout << "  [cell " << ct.gx << "," << ct.gy
+                                                  << "] base=" << ct.h[0]
+                                                  << " min=" << cmn << " max=" << cmx << "\n";
+                                    }
+                                    cells[{ct.gx, ct.gy}] = std::move(ct);
+                                }
                                 break;
                             }
                             off += 6 + ss;
