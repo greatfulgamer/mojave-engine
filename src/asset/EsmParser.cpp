@@ -139,6 +139,7 @@ EsmStats EsmParser::Parse(const fs::path& esmPath) {
                 }
             }
         }
+        }
         f.seekg(pos + std::streamoff(kRecordHeaderSize + size));
     }
 
