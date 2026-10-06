@@ -123,8 +123,12 @@ int main(int argc, char** argv) {
         try {
             auto cells = mojave::asset::EsmParser::FindByEdid(esm, argv[2]);
             size_t pick = cells.size();
+            // Prefer an exact EDID match, then any CELL containing the substring.
             for (size_t i = 0; i < cells.size(); ++i)
-                if (cells[i].type == "CELL") { pick = i; break; }
+                if (cells[i].type == "CELL" && cells[i].edid == argv[2]) { pick = i; break; }
+            if (pick == cells.size())
+                for (size_t i = 0; i < cells.size(); ++i)
+                    if (cells[i].type == "CELL") { pick = i; break; }
             if (pick == cells.size()) { std::cerr << "No CELL matching '" << argv[2] << "'\n"; return 1; }
             const auto& cell = cells[pick];
             auto refs = mojave::asset::EsmParser::CellReferences(esm, cell.formId);
