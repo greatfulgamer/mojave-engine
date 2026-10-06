@@ -4,6 +4,10 @@
 #include <cstdlib>
 #include <fstream>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace mojave::platform {
 
 namespace {
@@ -38,6 +42,38 @@ void AssetLocator::ScanSteamRoot(const fs::path& steamRoot,
     if (LooksLikeInstall(rootCandidate))
         out.push_back({rootCandidate, "steam", ""});
 }
+
+#ifdef _WIN32
+// Windows registry discovery — playbook Part 2 matrix:
+//   Steam: HKLM\SOFTWARE\WOW6432Node\Valve\Steam @ InstallPath
+//   GOG:   HKLM\SOFTWARE\WOW6432Node\GOG.com\Games\1454587515 @ path
+void AssetLocator::ScanRegistry(std::vector<GameInstall>& out) {
+    auto readReg = [](const wchar_t* subkey, const wchar_t* value) -> std::wstring {
+        HKEY h = nullptr;
+        std::wstring result;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey, 0,
+                          KEY_READ | KEY_WOW64_32KEY, &h) == ERROR_SUCCESS) {
+            wchar_t buf[MAX_PATH];
+            DWORD size = sizeof(buf);
+            if (RegQueryValueExW(h, value, nullptr, nullptr,
+                                 reinterpret_cast<LPBYTE>(buf), &size) == ERROR_SUCCESS)
+                result = buf;
+            RegCloseKey(h);
+        }
+        return result;
+    };
+
+    const std::wstring steam = readReg(L"SOFTWARE\\Valve\\Steam", L"InstallPath");
+    if (!steam.empty())
+        ScanSteamRoot(fs::path(steam), out);
+
+    const std::wstring gog = readReg(L"SOFTWARE\\GOG.com\\Games\\1454587515", L"path");
+    if (!gog.empty()) {
+        fs::path p(gog);
+        if (LooksLikeInstall(p)) out.push_back({p, "gog", ""});
+    }
+}
+#endif // _WIN32
 
 void AssetLocator::ScanCommonLinuxPaths(std::vector<GameInstall>& out) {
     const char* home = std::getenv("HOME");

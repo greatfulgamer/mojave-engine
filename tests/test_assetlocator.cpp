@@ -8,6 +8,7 @@
 #include <fstream>
 
 #include "platform/AssetLocator.h"
+#include "test_util.h"
 
 namespace fs = std::filesystem;
 using mojave::platform::AssetLocator;
@@ -31,7 +32,7 @@ int main() {
     // 1. Env override wins.
     const fs::path envInstall = base / "env_install";
     MakeFakeInstall(envInstall);
-    setenv("MOJAVE_GAME_PATH", envInstall.c_str(), 1);
+    mojave_test::SetEnv("MOJAVE_GAME_PATH", envInstall.string().c_str());
     {
         auto found = AssetLocator::Discover();
         assert(!found.empty() && "env override install must be found");
@@ -58,7 +59,7 @@ int main() {
             << "  \"0\" { \"path\" \"" << lib2.string() << "\" }\n"
             << "}\n";
     }
-    setenv("MOJAVE_STEAM_ROOT", steamRoot.c_str(), 1);
+    mojave_test::SetEnv("MOJAVE_STEAM_ROOT", steamRoot.string().c_str());
     {
         auto found = AssetLocator::Discover();
         bool gotLib2 = false;
