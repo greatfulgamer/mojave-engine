@@ -7,13 +7,22 @@ overnight regression). Live file: update whenever verified state changes.
 
 ## Active slice
 
-**Phase 1 step 1 — "The World Is Read" (Day 3: Format Footing)**
+**Phase 1 step 1 — "The World Is Read" (ESM walk: DONE)**
 
 - [x] Data: `docs/formats/esm-records.md` (cited: UESP, xNVSE, OpenNV, in-file)
 - [x] Archive: synthetic mini-ESM golden test (runs in CI, no game files)
-- [x] Real-file golden: TES4 header + GRUP walk + digest on FalloutNV.esm
+- [x] Real-file golden: TES4 header + GRUP descent + census + digest
 - [x] CLI: `mojave --esm-info`
-- [ ] Next slice: subrecord parser + FormDB skeleton (own format doc + goldens)
+- [x] **Discovered invariant:** HEDR `numRecords` = walked records + GRUP headers
+      (465,016 + 77,000 = 542,016 exactly on the vanilla master)
+- [x] 107 unique record types enumerated; digest `71f57e617a2dbfe1` (stable)
+
+## Next slice candidates (morning triage pick)
+
+1. **Per-type census + first subrecord parser** → FormDB skeleton
+   (pick one type: CELL/WRLD for the world path, or WEAP as a small warm-up)
+2. **BSA mounting** → VFS reads `Fallout - Meshes.bsa` / `Textures.bsa`,
+   entry count + extract-one-mesh goldens (needed before NIF/DDS)
 
 ## Verified state
 
